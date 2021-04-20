@@ -1,11 +1,7 @@
 import pandas as pd
 import os
 from sqlalchemy import create_engine
-
-class Constant:
-    @staticmethod
-    def table_name() -> str:
-        return 'etl'
+from constant import Constat
 
 class ETLPipeline:
     def __init__(self, messages_path: str, categories_path: str, sql_path: str):
