@@ -9,6 +9,9 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.multioutput import MultiOutputClassifier
 from constant import Constant
+from sklearn.metrics import classification_report
+import numpy as np
+from sklearn.model_selection import GridSearchCV
 
 
 # load data from database
@@ -28,7 +31,7 @@ for i, column in enumerate(Constant.labels()):
   min_value = mins[i]
   max_value = maxes[i]
   if min_value != 0 or max_value != 1:
-    print(f"column: {column} min: {min_value} max: {max_value} invalid, skipping label")
+    print(f"column: {column} min: {min_value} max: {max_value} invalid, removing label")
   else:
     cleaned_labels.append(column)
 
@@ -45,45 +48,57 @@ X_test, X_train, y_test, y_train = train_test_split(X, Y, random_state=42)
 pipeline = Pipeline([
     ('vect', CountVectorizer(tokenizer=tokenize)),
     ('tfidf', TfidfTransformer()),
-    ('clf', MultiOutputClassifier(SGDClassifier(), n_jobs=1))
-    # ('clf', MultiOutputClassifier(KNeighborsClassifier(), n_jobs=1))
+    ('clf', MultiOutputClassifier(SGDClassifier(max_iter=5000, tol=1e-3), n_jobs=1))
 ])
 
 pipeline.fit(X_train, y_train)
 print(pipeline.get_params())
 y_pred = pipeline.predict(X_test)
-print()
+y_test_numpy = y_test.to_numpy()
 
-# ### 5. Test your model
-# Report the f1 score, precision and recall for each output category of the dataset. You can do this by iterating through the columns and calling sklearn's `classification_report` on each.
+all_class_avg = {'f1': [], 'precision': [], 'recall': []}
+for i, e in enumerate(cleaned_labels):
+    feature_predictions = y_pred[:, i]
+    feature_truth = y_test_numpy[:, i]
+    metrics = classification_report(
+        y_pred=feature_predictions,
+        y_true=feature_truth,
+        output_dict=True,
+        zero_division=0
+    )
 
-# In[ ]:
+    print(f"Metrics for column {e}")
+    # source: https://datascience.stackexchange.com/questions/40900/whats-the-difference-between-sklearn-f1-score-micro-and-weighted-for-a-mult
+    f1 = metrics['macro avg']['f1-score']
+    precision = metrics['macro avg']['precision']
+    recall = metrics['macro avg']['recall']
+    all_class_avg['f1'].append(f1)
+    all_class_avg['precision'].append(precision)
+    all_class_avg['recall'].append(recall)
+    print(f"f1 (macro): {f1}, precision: {precision}, recall: {recall}")
+
+print(f"Overall Metric Average")
+for k,v in all_class_avg.items():
+    avg = np.average(v)
+    print(f"{k}: {avg}")
+
+parameters = {'clf__estimator__loss': [
+    'hinge', 
+    'log', 
+    'modified_huber', 
+    'squared_hinge', 
+    'perceptron',
+    'squared_loss',
+    'huber',
+    'epsilon_insensitive',
+    'squared_epsilon_insensitive']
+    }
 
 
-from sklearn.metrics import classification_report
-
-
-for i in range(0, len(y_pred)):
-  m = classification_report(y_test[i], y_pred[i])
-
-
-# ### 6. Improve your model
-# Use grid search to find better parameters. 
-
-# In[ ]:
-
-
-parameters = None
-
-cv = None
-
-
-# ### 7. Test your model
-# Show the accuracy, precision, and recall of the tuned model.  
-# 
-# Since this project focuses on code quality, process, and  pipelines, there is no minimum performance metric needed to pass. However, make sure to fine tune your models for accuracy, precision and recall to make your project stand out - especially for your portfolio!
-
-# In[ ]:
+cv = GridSearchCV(pipeline, parameters, n_jobs=-1)
+cv.fit(X_train, y_train)
+print(cv.get_params())
+y_pred = cv.predict(X_test)
 
 
 
