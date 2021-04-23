@@ -17,8 +17,11 @@ import math
 import pickle
 import os
 import json
-from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
+import time
+import warnings
+
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 def tokenize(text):
     return TweetTokenizer().tokenize(text)
@@ -64,7 +67,6 @@ class MLPipeline():
     def __model_file(self, model_name):
         return f"{model_name}.pickle"
 
-    @ignore_warnings(category=ConvergenceWarning)
     def __pipeline_fit(self, classifier, X_train, Y_train):
         model = self.__build_pipeline(classifier)
         model.fit(X_train, Y_train)
@@ -127,14 +129,18 @@ class MLPipeline():
         X_test, X_train, Y_test, Y_train = train_test_split(X, Y, random_state=42)
         
         print("Run Decision Tree Pipeline")
+        start = time.time()
         decision_tree_classifier = DecisionTreeClassifier()
         decision_tree_pipeline = self.__pipeline_fit(decision_tree_classifier, X_train, Y_train)
         result['DecisionTree'] = self.__pipeline_metric(decision_tree_pipeline, X_test, Y_test, cleaned_labels, 'DecisionTree')
+        print(f"Decision Tree finished in {time.time() - start} sec")
 
         print("Run SGD Pipeline")
+        start = time.time()
         sgd_classifier = SGDClassifier(max_iter=5000, tol=1e-3)
         sgd_pipeline = self.__pipeline_fit(sgd_classifier, X_train, Y_train)
         result['SGD'] = self.__pipeline_metric(sgd_pipeline, X_test, Y_test, cleaned_labels, 'SGD')
+        print(f"SGD finished in {time.time() - start} sec")
 
         parameters = {
             'clf__estimator__loss': [
@@ -150,12 +156,14 @@ class MLPipeline():
         # Note: here I would prefer Hyperopt or Optuna
         # But project requires GridSearch
         print("Run SGD Grid Pipeline")
+        start = time.time()
         sgd_grid = GridSearchCV(sgd_pipeline, parameters, n_jobs=1).fit(X_train, Y_train)
         result['SGDGrid'] = self.__pipeline_metric(sgd_grid, X_test, Y_test, cleaned_labels, 'SGDGrid')
+        print(f"SGDGrid finished in {time.time() - start} sec")
         
         print("Summary (f1 avg): ")
         for k,v in result.items():
-            f1 = v['f1']
+            f1 = v['f1_average']
             print(f"{k}: {f1}")
 
 
@@ -164,7 +172,7 @@ class MLPipeline():
             model = v['model']
             filename = f"{k}.pickle"
             with open(filename, 'wb') as f:
-                pickle.dump(model)
+                pickle.dump(obj=model, file=f)
 
 
 
