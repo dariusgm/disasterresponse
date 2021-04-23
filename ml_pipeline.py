@@ -12,105 +12,129 @@ from constant import Constant
 from sklearn.metrics import classification_report
 import numpy as np
 from sklearn.model_selection import GridSearchCV
+from sklearn.base import ClassifierMixin
+import math
 
-
-# load data from database
-engine = create_engine('sqlite:///etl.db')
-df = pd.read_sql_table('etl', engine)
-
-# Set X, y
-X = df['message']
-Y = df[Constant.labels()]
-
-
-print("checking labels")
-mins = Y.min()
-maxes = Y.max()
-cleaned_labels = []
-for i, column in enumerate(Constant.labels()):
-  min_value = mins[i]
-  max_value = maxes[i]
-  if min_value != 0 or max_value != 1:
-    print(f"column: {column} min: {min_value} max: {max_value} invalid, removing label")
-  else:
-    cleaned_labels.append(column)
-
-Y = Y[cleaned_labels]
-print(Y.columns)
-
-    
-
-t = TweetTokenizer()
 def tokenize(text):
-    return t.tokenize(text)
+    return TweetTokenizer().tokenize(text)
 
-X_test, X_train, y_test, y_train = train_test_split(X, Y, random_state=42)
-pipeline = Pipeline([
-    ('vect', CountVectorizer(tokenizer=tokenize)),
-    ('tfidf', TfidfTransformer()),
-    ('clf', MultiOutputClassifier(SGDClassifier(max_iter=5000, tol=1e-3), n_jobs=1))
-])
+# Data Container for metric calculation
+class Metric():
+    def __init__(self):
+        self.avg_f1 = []
+        # using macro avg here, source: https://datascience.stackexchange.com/questions/40900/whats-the-difference-between-sklearn-f1-score-micro-and-weighted-for-a-mult
+        self.metric_key = 'macro avg'
 
-pipeline.fit(X_train, y_train)
-print(pipeline.get_params())
-y_pred = pipeline.predict(X_test)
-y_test_numpy = y_test.to_numpy()
+    def push(self, metrics: dict, column: str):
+        nested = metrics[self.metric_key]
+        f1 = nested['f1-score']
+        precision = nested['precision']
+        recall = nested['recall']
+        self.avg_f1.append(f1)
+        print(f"column: {column}, f1 (macro): {round(f1, 2)}, \
+            precision: {round(precision, 2)}, \
+            recall: {round(recall, 2)}")
 
-all_class_avg = {'f1': [], 'precision': [], 'recall': []}
-for i, e in enumerate(cleaned_labels):
-    feature_predictions = y_pred[:, i]
-    feature_truth = y_test_numpy[:, i]
-    metrics = classification_report(
-        y_pred=feature_predictions,
-        y_true=feature_truth,
-        output_dict=True,
-        zero_division=0
-    )
-
-    print(f"Metrics for column {e}")
-    # source: https://datascience.stackexchange.com/questions/40900/whats-the-difference-between-sklearn-f1-score-micro-and-weighted-for-a-mult
-    f1 = metrics['macro avg']['f1-score']
-    precision = metrics['macro avg']['precision']
-    recall = metrics['macro avg']['recall']
-    all_class_avg['f1'].append(f1)
-    all_class_avg['precision'].append(precision)
-    all_class_avg['recall'].append(recall)
-    print(f"f1 (macro): {f1}, precision: {precision}, recall: {recall}")
-
-print(f"Overall Metric Average")
-for k,v in all_class_avg.items():
-    avg = np.average(v)
-    print(f"{k}: {avg}")
-
-parameters = {'clf__estimator__loss': [
-    'hinge', 
-    'log', 
-    'modified_huber', 
-    'squared_hinge', 
-    'perceptron',
-    'squared_loss',
-    'huber',
-    'epsilon_insensitive',
-    'squared_epsilon_insensitive']
-    }
-
-
-cv = GridSearchCV(pipeline, parameters, n_jobs=-1)
-cv.fit(X_train, y_train)
-print(cv.get_params())
-y_pred = cv.predict(X_test)
+    def average_f1(self):
+        return np.average(self.avg_f1)
 
 
 
+class MLPipeline():
+    def __init__(self):
+        self.table = Constant.table_name()
+        self.tokenizer = TweetTokenizer()
+
+    def __pipeline_fit(self, classifier, X_train, Y_train):
+        model = self.__build_pipeline(classifier)
+        model.fit(X_train, Y_train)
+        return model
+
+    def __pipeline_metric(self, model, X_test, Y_test, cleaned_labels):
+        Y_pred = model.predict(X_test)
+        Y_test_numpy = Y_test.to_numpy()
+
+        metrics = Metric()
+        for i, column in enumerate(cleaned_labels):
+            feature_predictions = Y_pred[:, i]
+            feature_truth = Y_test_numpy[:, i]
+            metric = classification_report(
+                            y_pred=feature_predictions,
+                            y_true=feature_truth,
+                            output_dict=True,
+                            zero_division=0)
+            
+            metrics.push(metric, column) 
+            
+
+        return {'model': model, 'f1': metrics.average_f1()}
+
+    def __clean_labels(self, Y):
+        print("checking labels")
+        mins = Y.min()
+        maxes = Y.max()
+        cleaned_labels = []
+        for i, column in enumerate(Constant.labels()):
+          min_value = mins[i]
+          max_value = maxes[i]
+          if min_value != 0 or max_value != 1:
+            print(f"column: {column} min: {min_value} max: {max_value} invalid, removing label")
+          else:
+            cleaned_labels.append(column)
+
+        return cleaned_labels
+
+    def __build_pipeline(self, classifier: ClassifierMixin):
+        return Pipeline([
+            ('vect', CountVectorizer(tokenizer=tokenize)),
+            ('tfidf', TfidfTransformer()),
+            ('clf', MultiOutputClassifier(classifier, n_jobs=1))
+        ])
+
+    def run(self):
+        result = {}
+        print("Reading data")
+        engine = create_engine('sqlite:///etl.db')
+        df = pd.read_sql_table(self.table, engine)
+
+        X = df['message']
+        Y = df[Constant.labels()]
+        print("cleaning labels")
+        cleaned_labels = self.__clean_labels(Y)
+        Y = Y[cleaned_labels]
+
+        X_test, X_train, Y_test, Y_train = train_test_split(X, Y, random_state=42)
+        print("Run SGD Pipeline")
+        sgd_classifier = SGDClassifier(max_iter=5000, tol=1e-3)
+        sgd_pipeline = self.__pipeline_fit(sgd_classifier, X_train, Y_train)
+        result['SGD'] = self.__pipeline_metric(sgd_pipeline, X_test, Y_test, cleaned_labels)
+
+        parameters = {'clf__estimator__loss': [
+            'hinge', 
+            'log', 
+            'modified_huber', 
+            'squared_hinge'
+            ],
+            'clf__estimator__max_iter': [5000],
+            'clf__estimator__tol': [1e-3]
+        }
 
 
-# ### 8. Try improving your model further. Here are a few ideas:
-# * try other machine learning algorithms
-# * add other features besides the TF-IDF
+        # Note: here I would prefer Hyperopt or Optuna
+        # But project requires GridSearch
+        print("Run SGD Grid Pipeline")
+        sgd_grid = GridSearchCV(sgd_pipeline, parameters, n_jobs=-1).fit(X_train, Y_train)
+        result['SGD Grid'] = self.__pipeline_metric(sgd_grid, X_test, Y_test, cleaned_labels)
+        
+        print("Run KN Pipeline")
+        k_neighbors_classifier = KNeighborsClassifier()
+        k_neighbors_pipeline = self.__pipeline_fit(k_neighbors_classifier, X_train, Y_train)
+        result['KN'] = self.__pipeline_metric(k_neighbors_pipeline, X_test, Y_test, cleaned_labels)
 
-# In[ ]:
-
-
+        print("Summary (f1 avg): ")
+        for k,v in result.items():
+            f1 = v['f1']
+            print(f"{k}: {f1}")
 
 
 
@@ -119,13 +143,9 @@ y_pred = cv.predict(X_test)
 # In[ ]:
 
 
+def main():
+    ml_pipeline = MLPipeline()
+    ml_pipeline.run()
 
-
-
-# ### 10. Use this notebook to complete `train.py`
-# Use the template file attached in the Resources folder to write a script that runs the steps above to create a database and export a model based on a new dataset specified by the user.
-
-# In[ ]:
-
-
-
+if __name__ == '__main__':
+    main()
