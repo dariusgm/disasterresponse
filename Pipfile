@@ -8,6 +8,9 @@ pandas = "*"
 SQLAlchemy = "*"
 nltk = "*"
 sklearn = "*"
+flask = "*"
+plotly = "*"
+joblib = "*"
 
 [dev-packages]
 notebook = "*"
