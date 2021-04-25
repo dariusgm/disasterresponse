@@ -2,15 +2,13 @@ import json
 import plotly
 import pandas as pd
 
-from nltk.stem import WordNetLemmatizer
-from nltk.tokenize import word_tokenize
-
 from flask import Flask
 from flask import render_template, request, jsonify
 from plotly.graph_objs import Bar, Histogram
 import joblib
 from sqlalchemy import create_engine
 import json
+
 # this hack is required to run the webserver from within the app directory.
 # I would have put the run.py in the project root 
 import sys
@@ -21,19 +19,17 @@ from constant import Constant
 from train_classifier import tokenize
 
 from pathlib import Path
-import nltk
-# nltk.download('punkt')
-# nltk.download('wordnet')
 
-'''
-Return ready to use graph to generate them once ";"
 
-:param df: (pd.DataFrame) Data used for the entire pipeline 
-:param model_meta: (dict) Meta information with f1 score for each column
-:returns: (dict) ready to use dict for plotly
-'''
 def build_graphs(df: pd.DataFrame, model_meta: dict):
-    # prepare data for visualisations once
+    '''
+    Return ready to use graph to generate them once
+
+    :param df: (pd.DataFrame) Data used for the entire pipeline 
+    :param model_meta: (dict) Meta information with f1 score for each column
+    :returns: (dict) ready to use dict for plotly
+    '''
+
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
 
@@ -48,9 +44,6 @@ def build_graphs(df: pd.DataFrame, model_meta: dict):
             positives.append(len(df[df[column] == 1]))
             negatives.append(len(df[df[column] == 0]))
 
-    print(positives)
-    print(negatives)
-    # create visuals
     graphs = [
     {
             'data': [
@@ -118,6 +111,12 @@ def build_graphs(df: pd.DataFrame, model_meta: dict):
 
 
 def setup():
+    '''
+    Return model, database and meta_model path informations
+    as no path are allowed inside the main call
+
+    :returns: (tuple(3)) database_path, loaded model, meta model path
+    '''
     def extract_by_extention(extension):
         result = []
         for path in Path('..').rglob(extension):
