@@ -199,9 +199,9 @@ class MLPipeline():
         print(f"SGDGrid finished in {time.time() - start} sec")
         
         
-
         winner_data = None
         winner_f1 = None
+        winner_name = None
 
         print("Summary (f1 avg): ")
         for model_name, v in result.items():
@@ -214,11 +214,13 @@ class MLPipeline():
             if winner_f1 == None:
                 winner_data = v
                 winner_f1 = score
+                winner_name = k
             elif score < winner_f1:
                 winner_data = model
-                winner_f1 = score           
+                winner_f1 = score
+                winner_name = k           
 
-        print("Saving winning model")
+        print(f"Saving winning model: {winner_data}")
         filename = f"{self.model_filepath}"
         with open(filename, 'wb') as f:
             pickle.dump(obj=winner_data['model'], file=f)

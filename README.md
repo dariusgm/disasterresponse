@@ -37,11 +37,13 @@ pipenv shell
 
 2. Run the following command in the app's directory to run your web app.
     `python run.py`
-    
+
 3. Go to http://0.0.0.0:3001/
 
 
 You can now access http://localhost:8888 and start playing around.
+
+Or you can use ./all.sh for doing all steps in one
 
 # Installation Docker
 
