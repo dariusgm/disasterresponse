@@ -26,7 +26,7 @@ def build_graphs(df: pd.DataFrame, model_meta: dict):
 
     :param df: (pd.DataFrame) Data used for the entire pipeline 
     :param model_meta: (dict) Meta information with f1 score for each column
-    :returns: (dict) ready to use dict for plotly
+    :returns: (ids, graphJSON) ready to use tuple for the frontend rendering
     '''
 
     genre_counts = df.groupby('genre').count()['message']

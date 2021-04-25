@@ -21,8 +21,10 @@ import time
 import warnings
 import sys
 
+# ignore warnings from grid search
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
+# tokenize function, we share it here with run.py
 def tokenize(text):
     return TweetTokenizer().tokenize(text)
 
@@ -35,7 +37,13 @@ class Metric():
         self.metric_dict = {}
         self.model_name = model_name        
 
-    def push(self, metrics: dict, column: str):
+    def push(self, metrics: dict, column: str) -> None:
+        '''
+        push a new entry of metric
+        :param metrics: (dict) new metric to add
+        :param column: (dict) name of the column that this metric was calculated for.
+        :returns: None
+        ''' 
         nested = metrics[self.metric_key]
         f1 = nested['f1-score']
         precision = nested['precision']
@@ -46,10 +54,18 @@ class Metric():
             precision: {round(precision, 2)}, \
             recall: {round(recall, 2)}")
 
-    def __average_f1(self):
+    def __average_f1(self) -> float:
+        '''
+        calculate f1  avg on all columns to better compare different pipelines
+        :returns: float
+        '''         
         return np.average(self.avg_f1)
 
-    def dump(self):
+    def dump(self) -> dict:
+        '''
+        return al collected metric data as dict
+        :returns: dict
+        ''' 
         all_metrics = self.metric_dict.copy()
         all_metrics['f1_average'] = self.__average_f1()
 
@@ -99,18 +115,28 @@ class MLPipeline():
             'direct_report'
         ]
 
-    def __model_exists(self, filename):
-        return os.path.exists(filename)
-
-    def __model_file(self, model_name):
-        return f"{model_name}.pickle"
-
-    def __pipeline_fit(self, classifier, X_train, Y_train):
+    def __pipeline_fit(self, classifier: ClassifierMixin, X_train: pd.DataFrame, Y_train: pd.DataFrame):
+        '''
+        fit a pipeline
+        :param classifier: (ClassifierMixin) classifier to use for pipeline.
+        :param X_train: (pd.DataFrame) matrix for train data.
+        :param Y_train: (pd.DataFrame) matrix for label data.
+        :returns: (ClassifierMixin) fitted pipeline.
+        ''' 
         model = self.__build_pipeline(classifier)
         model.fit(X_train, Y_train)
         return model
 
-    def __pipeline_metric(self, model, X_test, Y_test, cleaned_labels, model_name):
+    def __pipeline_metric(self, model: ClassifierMixin, X_test: pd.DataFrame, Y_test: pd.DataFrame, cleaned_labels: list, model_name: str) -> dict:
+        '''
+        calculate quality of a trained pipeline.
+        :param model: (ClassifierMixin) trained pipeine to calculate quality for.
+        :param X_test: (pd.DataFrame) matrix for test data.
+        :param Y_test: (pd.DataFrame) matrix for test label data.
+        :param cleaned_labels: (list(str)) list of labels that should be take into acount for quality check.
+        :param model_name: (str) name of the model that should be checked for quality.
+        :returns: (dict) quality of model
+        '''        
         Y_pred = model.predict(X_test)
         Y_test_numpy = Y_test.to_numpy()
 
@@ -130,13 +156,20 @@ class MLPipeline():
         all_metrics['model'] = model
         return all_metrics
 
-    def __clean_labels(self, Y):
+    def __clean_labels(self, Y: pd.DataFrame) -> list:
+        '''
+        list of labels that can be used for training and quality check
+        :param Y: (pd.DataFrame) trained pipeine to calculate quality for.
+        :returns: (list) list of valid labels
+        ''' 
         mins = Y.min()
         maxes = Y.max()
         cleaned_labels = []
         for i, column in enumerate(self.labels):
           min_value = mins[i]
           max_value = maxes[i]
+          # invalid lables should have positive (1) and negative examples (0)
+          # also the min should be 0 for this case and max 1, otherwise its not a binary classification problem
           if min_value != 0 or max_value != 1:
             print(f"column: {column} min: {min_value} max: {max_value} invalid, removing label")
           else:
@@ -144,14 +177,19 @@ class MLPipeline():
 
         return cleaned_labels
 
-    def __build_pipeline(self, classifier: ClassifierMixin):
+    def __build_pipeline(self, classifier: ClassifierMixin) -> Pipeline:
+
         return Pipeline([
             ('vect', CountVectorizer(tokenizer=tokenize)),
             ('tfidf', TfidfTransformer()),
             ('clf', MultiOutputClassifier(classifier, n_jobs=1))
         ])
 
-    def run(self):
+    def run(self) -> None:
+        '''
+        main entry point for MLPipeline
+        :returns: (None)
+        '''         
         result = {}
         print("Reading data")
         engine = create_engine(f"sqlite:///{self.database_filepath}")
@@ -198,7 +236,7 @@ class MLPipeline():
         result['SGDGrid'] = self.__pipeline_metric(sgd_grid, X_test, Y_test, cleaned_labels, 'SGDGrid')
         print(f"SGDGrid finished in {time.time() - start} sec")
         
-        
+        # Calculate winning algorithm
         winner_data = None
         winner_f1 = None
         winner_name = None

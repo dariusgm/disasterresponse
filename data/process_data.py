@@ -12,10 +12,13 @@ class ETLPipeline:
         self.categories_path = categories_path
         self.sql_path = sql_path
 
-    def __count_duplucates(self, df: pd.DataFrame):
-        pass
-
     def __transform_categories(self, df: pd.DataFrame) -> pd.DataFrame:
+        '''
+        Return ready to use graph to generate them once
+
+        :param df: (pd.DataFrame) data with cateogries column
+        :returns: (pd.DataFrame) ccategories column exploded to multiple columns
+        '''
         # create a dataframe of the 36 individual category columns
         categories = df['categories'].str.split(expand=True, pat=";")
 
@@ -39,19 +42,35 @@ class ETLPipeline:
         return categories
 
     def __extract(self):
+         '''
+        Return raw df for messages and categories
+        :returns: (list(pd.DataFrame)) [messages_df, categories_df]
+        '''       
         return [
             pd.read_csv(self.messages_path), 
             pd.read_csv(self.categories_path)
         ]
 
-    def __transform(self, categories: pd.DataFrame, messages: pd.DataFrame):
+    def __transform(self, categories: pd.DataFrame, messages: pd.DataFrame) -> pd.DataFrame:
+         '''
+        transform categories_df and messages_df. 
+        Apply required transformations on the data.
+        :param categories: (pd.DataFrame) data with cateogries
+        :param messages: (pd.DataFrame) data with messages
+        :returns: merged df
+        '''           
         df =  pd.concat([categories, messages], axis=1)
         categories = self.__transform_categories(df)
 
         df = df.drop(columns='categories')
         return pd.concat([df, categories], axis=1)
 
-    def __load(self, df: pd.DataFrame):
+    def __load(self, df: pd.DataFrame) -> None:
+         '''
+        Dump the data without duplocates to a sqlite database
+        :param df: (pd.DataFrame) entire dataframe
+        :returns: None
+        ''' 
         # check number of duplicates
         print("length with duplicates: {}".format(len(df)))
 
@@ -65,6 +84,10 @@ class ETLPipeline:
         df.to_sql('etl', engine, index=False)
 
     def run(self):
+         '''
+        trigger entire ETL process
+        :returns: None
+        ''' 
         messages_df, categories_df = self.__extract()
         df = self.__transform(messages_df, categories_df)
         self.__load(df)
