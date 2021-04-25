@@ -46,7 +46,7 @@ You can now access http://localhost:8888 and start playing around.
 Or you can use ./all.sh for doing all steps in one
 
 ## Repository Structure
-
+```
 app/templates/go.html - result page for predictions
 app/templates/master.html - header and body part of index page
 app/run.py - start flask server and allow predicions (make sure you are in the app directory before you run it)
@@ -61,7 +61,6 @@ LICENCE
 Pipfile                     - set depedencies using pipenv
 Pipfile.lock                - lock file for pipenv
 README.md                   - this file
-
-
+```
 
 
