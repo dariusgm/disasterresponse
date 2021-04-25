@@ -1,10 +1,10 @@
 import sys
 
-
 import pandas as pd
 import os
 from sqlalchemy import create_engine
-from constant import Constat
+
+import sys
 
 class ETLPipeline:
     def __init__(self, messages_path: str, categories_path: str, sql_path: str):
@@ -53,16 +53,16 @@ class ETLPipeline:
 
     def __load(self, df: pd.DataFrame):
         # check number of duplicates
-        len(df) - len(df.drop_duplicates())
+        print("length with duplicates: {}".format(len(df)))
 
         # drop duplicates
         df = df.drop_duplicates()
 
         # check number of duplicates
-        print("length without duplicates: {}").format(len(df) - len(df.drop_duplicates()))
+        print("length without duplicates: {}".format(len(df)))
 
         engine = create_engine(f'sqlite:///{self.sql_path}')
-        df.to_sql(Constant.table_name(), engine, index=False)
+        df.to_sql('etl', engine, index=False)
 
     def run(self):
         messages_df, categories_df = self.__extract()
