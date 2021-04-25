@@ -194,8 +194,8 @@ class MLPipeline():
         # But project requires GridSearch
         print("Run SGD Grid Pipeline (takes ~45 minutes)")
         start = time.time()
-        sgd_grid = GridSearchCV(sgd_pipeline, parameters, n_jobs=1).fit(X_train, Y_train)
-        result['SGDGrid'] = self.__pipeline_metric(sgd_grid, X_test, Y_test, cleaned_labels, 'SGDGrid')
+        # sgd_grid = GridSearchCV(sgd_pipeline, parameters, n_jobs=1).fit(X_train, Y_train)
+        # result['SGDGrid'] = self.__pipeline_metric(sgd_grid, X_test, Y_test, cleaned_labels, 'SGDGrid')
         print(f"SGDGrid finished in {time.time() - start} sec")
         
         
@@ -214,13 +214,13 @@ class MLPipeline():
             if winner_f1 == None:
                 winner_data = v
                 winner_f1 = score
-                winner_name = k
+                winner_name = model_name
             elif score < winner_f1:
                 winner_data = model
                 winner_f1 = score
-                winner_name = k           
+                winner_name = model_name           
 
-        print(f"Saving winning model: {winner_data}")
+        print(f"Saving winning model: {winner_name}")
         filename = f"{self.model_filepath}"
         with open(filename, 'wb') as f:
             pickle.dump(obj=winner_data['model'], file=f)

@@ -15,7 +15,6 @@ import sys
 sys.path.append("..")
 sys.path.append("../models")
 
-from constant import Constant
 from train_classifier import tokenize
 
 from pathlib import Path
@@ -147,7 +146,7 @@ app = Flask(__name__)
 
 # load data
 engine = create_engine(f'sqlite:///{database}')
-df = pd.read_sql_table(Constant.table_name(), engine)
+df = pd.read_sql_table('etl', engine)
 
 # load model meta
 with(open(model_meta, 'rt')) as f:
