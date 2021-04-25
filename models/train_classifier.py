@@ -194,8 +194,8 @@ class MLPipeline():
         # But project requires GridSearch
         print("Run SGD Grid Pipeline (takes ~45 minutes)")
         start = time.time()
-        # sgd_grid = GridSearchCV(sgd_pipeline, parameters, n_jobs=1).fit(X_train, Y_train)
-        # result['SGDGrid'] = self.__pipeline_metric(sgd_grid, X_test, Y_test, cleaned_labels, 'SGDGrid')
+        sgd_grid = GridSearchCV(sgd_pipeline, parameters, n_jobs=1).fit(X_train, Y_train)
+        result['SGDGrid'] = self.__pipeline_metric(sgd_grid, X_test, Y_test, cleaned_labels, 'SGDGrid')
         print(f"SGDGrid finished in {time.time() - start} sec")
         
         
