@@ -7,7 +7,7 @@ from nltk.tokenize import word_tokenize
 
 from flask import Flask
 from flask import render_template, request, jsonify
-from plotly.graph_objs import Bar
+from plotly.graph_objs import Bar, Histogram
 import joblib
 from sqlalchemy import create_engine
 import json
@@ -25,58 +25,71 @@ import nltk
 # nltk.download('punkt')
 # nltk.download('wordnet')
 
-def setup():
-    def extract_by_extention(extension):
-        result = []
-        for path in Path('..').rglob(extension):
-            result.append(path)
-        return result
-    
-    databases = extract_by_extention('*.db')
-    if len(databases) != 1:
-        raise RuntimeError("more than one database found. Delete unused datbase.")
+'''
+Return ready to use graph to generate them once ";"
 
-    models = extract_by_extention('*.pkl')
-    if len(models) != 1:
-         raise RuntimeError("more than one model found. Delete unused models.")
-    
-    model_metas = extract_by_extention('*.json')
-    if len(model_metas) != 1:
-         raise RuntimeError("more than one model meta file found. Delete unused model meta files.")
-
-    return databases[0], models[0], model_metas[0] 
-
-
-
-# as we can not pass any names here (not like in etl and ml pipeline)
-# we will search the db and model
-database, model, model_meta = setup()
-app = Flask(__name__)
-
-# load data
-engine = create_engine(f'sqlite:///{database}')
-df = pd.read_sql_table(Constant.table_name(), engine)
-
-# load model
-model = joblib.load(model)
-
-# load model meta
-with(open(model_meta, 'rt')) as f:
-    model_meta = json.loads(f.read())
-
-# index webpage displays cool visuals and receives user input text for model
-@app.route('/')
-@app.route('/index')
-def index():
-    
-    # extract data needed for visuals
-    # TODO: Below is an example - modify to extract data for your own visuals
+:param df: (pd.DataFrame) Data used for the entire pipeline 
+:param model_meta: (dict) Meta information with f1 score for each column
+:returns: (dict) ready to use dict for plotly
+'''
+def build_graphs(df: pd.DataFrame, model_meta: dict):
+    # prepare data for visualisations once
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
-    
+
+
+    metric_values = list(model_meta.values())
+    metric_name = list(model_meta.keys())
+
+    positives = []
+    negatives = []
+    for column in model_meta.keys():
+        if column in df.columns:
+            positives.append(len(df[df[column] == 1]))
+            negatives.append(len(df[df[column] == 0]))
+
+    print(positives)
+    print(negatives)
     # create visuals
-    # TODO: Below is an example - modify to create your own visuals
     graphs = [
+    {
+            'data': [
+                Bar(
+                    x=metric_name,
+                    y=metric_values
+                )
+            ],
+
+            'layout': {
+                'title': 'Model F1 Score by Column',
+                'yaxis': {
+                    'title': "Score"
+                },
+                'xaxis': {
+                    'title': "Column"
+                }
+            }
+
+        },    
+        {
+            'data': [
+                Bar(x=metric_name,y=positives, name='positives'),
+                Bar(x=metric_name,y=negatives, name='negatives')
+            ],
+
+            'layout': {
+                'title': 'Examples by Column',
+                'xaxis': {
+                    'title': "Column"
+                },
+                'yaxis': {
+                    'title': "Count"
+                },
+                'bargap': 0.3, 
+                'bargroupgap': 0.1 
+            }
+
+        },
         {
             'data': [
                 Bar(
@@ -95,13 +108,58 @@ def index():
                 }
             }
         }
+        
     ]
-    
+
     # encode plotly graphs in JSON
     ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
     graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
+    return (ids, graphJSON)
+
+
+def setup():
+    def extract_by_extention(extension):
+        result = []
+        for path in Path('..').rglob(extension):
+            result.append(path)
+        return result
     
-    # render web page with plotly graphs
+    databases = extract_by_extention('*.db')
+    if len(databases) != 1:
+        raise RuntimeError("more than one database found. Delete unused datbase.")
+
+    models = extract_by_extention('*.pkl')
+    if len(models) != 1:
+         raise RuntimeError("more than one model found. Delete unused models.")
+    model = joblib.load(models[0])
+    
+    model_metas = extract_by_extention('*.json')
+    if len(model_metas) != 1:
+         raise RuntimeError("more than one model meta file found. Delete unused model meta files.")
+
+    return databases[0], model, model_metas[0] 
+
+
+
+# as we can not pass any names here (not like in etl and ml pipeline)
+# we will search the db and model
+database, model, model_meta = setup()
+app = Flask(__name__)
+
+# load data
+engine = create_engine(f'sqlite:///{database}')
+df = pd.read_sql_table(Constant.table_name(), engine)
+
+# load model meta
+with(open(model_meta, 'rt')) as f:
+    model_meta = json.loads(f.read())
+
+ids, graphJSON = build_graphs(df, model_meta)
+
+# index webpage displays cool visuals and receives user input text for model
+@app.route('/')
+@app.route('/index')
+def index():
     return render_template('master.html', ids=ids, graphJSON=graphJSON)
 
 

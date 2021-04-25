@@ -59,7 +59,7 @@ class ETLPipeline:
         df = df.drop_duplicates()
 
         # check number of duplicates
-        len(df) - len(df.drop_duplicates())
+        print("length without duplicates: {}").format(len(df) - len(df.drop_duplicates()))
 
         engine = create_engine(f'sqlite:///{self.sql_path}')
         df.to_sql(Constant.table_name(), engine, index=False)

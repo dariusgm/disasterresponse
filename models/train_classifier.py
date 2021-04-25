@@ -52,8 +52,6 @@ class Metric():
     def dump(self):
         all_metrics = self.metric_dict.copy()
         all_metrics['f1_average'] = self.__average_f1()
-        with(open(f"{self.model_name}.json", 'wt')) as f:
-            f.write(json.dumps(all_metrics))
 
         return all_metrics
 
@@ -165,7 +163,7 @@ class MLPipeline():
         
         
 
-        winner_model = None
+        winner_data = None
         winner_f1 = None
 
         print("Summary (f1 avg): ")
@@ -177,16 +175,21 @@ class MLPipeline():
             print(f"{model_name}: F1 Avg: {f1}")
 
             if winner_f1 == None:
-                winner_model = model
+                winner_data = v
                 winner_f1 = score
             elif score < winner_f1:
-                winner_model = model
-                winner_f1 = score               
+                winner_data = model
+                winner_f1 = score           
 
         print("Saving winning model")
         filename = f"{self.model_filepath}"
         with open(filename, 'wb') as f:
-            pickle.dump(obj=winner_model, file=f)
+            pickle.dump(obj=winner_data['model'], file=f)
+
+        print("Saving winning model meta")
+        prefix = self.model_filepath.split(".")[0]
+        with(open(f"{prefix}.json", 'wt')) as f:
+            f.write(json.dumps(winner_data.drop('model')))
 
 
 def main():
