@@ -46,21 +46,26 @@ You can now access http://localhost:8888 and start playing around.
 Or you can use ./all.sh for doing all steps in one
 
 ## Repository Structure
+
 ```
-app/templates/go.html - result page for predictions
-app/templates/master.html - header and body part of index page
-app/run.py - start flask server and allow predicions (make sure you are in the app directory before you run it)
-data/disaster_categories.csv - raw category data provided by udacity
-data/disaster_messages.csv   - raw message data provided by udacity
-data/process_data.py         - run ETL Pipeline to prepare the data for MLPipeline
-models/ train_classifer.py   - run MLPipeline, producing a model and a model meta file.
-.gitignore
-.python-version             - sets the python version for pyenv
-.all.sh                     - run ETL Pipeline, than MLPipeline and finally start the webserver
-LICENCE
-Pipfile                     - set depedencies using pipenv
-Pipfile.lock                - lock file for pipenv
-README.md                   - this file
+├── app
+│   ├── templates
+│   │   ├── go.html - result page for predictions
+│   │   └─── master.html - header and body part of index page
+│   └─── run.py - start flask server and allow predicions (make sure you are in the app directory before you run it)
+├── data
+│   ├── disaster_categories.csv - raw category data provided by udacity
+│   ├── disaster_messages.csv   - raw message data provided by udacity
+│   └── process_data.py         - run ETL Pipeline to prepare the data for MLPipeline
+├── models
+│   └── train_classifer.py      - run MLPipeline, producing a model and a model meta file.
+├── .gitignore
+├── .python-version             - sets the python version for pyenv
+├── .all.sh                     - run ETL Pipeline, than MLPipeline and finally start the webserver
+├── LICENCE
+├── Pipfile                     - set depedencies using pipenv
+├── Pipfile.lock                - lock file for pipenv
+├── README.md                   - this file
 ```
 
 
